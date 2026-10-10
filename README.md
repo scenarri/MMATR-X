@@ -126,7 +126,7 @@ Table 5: Alignment vs. heterogeneity: Heterogeneity-Aware Selective Interaction.
 Evaluating SAR-only target classification (FUSAR-SHIP, MSTAR, SAR-ACD) and detection (SARDet-100K), CoDe-MAE achieves SOTA across all datasets. Crucially, it surpasses specialized SAR-specific models (e.g., SARMAE, SARATR-X). Outperforming these domain experts explicitly confirms that our strategy successfully preserves and enhances the modality-unique microwave scattering characteristics essential for SAR interpretation.
 
 ## Usage and Resource
-We provide OSPretrain-1M, code, and most weights (for both final and ablation, pretrained and fine-tuned) at [BaiduNetDisk](https://pan.baidu.com/s/1MNFYW0sU5Nkla67Aw0EL3g?pwd=vkpg).
+We provide OSPretrain-1M, code, and most weights (for both final and ablation, pretrained and fine-tuned) at ~~[BaiduNetDisk](https://pan.baidu.com/s/1MNFYW0sU5Nkla67Aw0EL3g?pwd=vkpg)~~. --We are currently working on a revision and refactoring this repository. We will share the resources again at a later date.
 - **Data Attribution**: OSPretrain-1M is a curated collection derived from 15 public sources. We gratefully acknowledge the creators. By downloading this dataset, you agree to comply with the respective original licenses, and cite the respective papers.
 
 > **1. Pretraining**: See [pretrain/README.md](pretrain/README.md) for a quick start.
