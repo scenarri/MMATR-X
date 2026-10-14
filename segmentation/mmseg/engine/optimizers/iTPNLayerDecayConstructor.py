@@ -29,7 +29,7 @@ class iTPNLayerDecayOptimizerConstructor(DefaultOptimWrapperConstructor):
         parameter_groups = {}
 
         logger.info(f'self.paramwise_cfg is {self.paramwise_cfg}')
-        num_layers = self.paramwise_cfg.get('num_layers') + 2
+        num_layers = self.paramwise_cfg.get('num_layers') + 3
         layer_decay_rate = self.paramwise_cfg.get('layer_decay_rate')
         logger.info('Build LearningRateDecayOptimizerConstructor  '
                     f'{layer_decay_rate} - {num_layers}')

@@ -25,33 +25,18 @@ import torch.nn as nn
 from torch.cuda.amp import GradScaler, autocast
 
 def set_seed(seed=42):
-    """
-    设置所有随机种子以确保实验可复现
-    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)  # 如果使用多GPU
-    
-    # 设置CuDNN的确定性选项（可能会降低性能，但确保可复现性）
+    torch.cuda.manual_seed_all(seed)
+
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-    
-    # 设置Python哈希种子
+
     os.environ['PYTHONHASHSEED'] = str(seed)
     
     print(f"Random seed set to {seed}")
-
-# class slide_inference(nn.Module):
-#     def __init__(self, model, window_size=512, stride=384, num_classes=4):
-#         self.model = model
-#         self.window_size = window_size
-#         self.stride = stride
-#         self.num_classes = num_classes
-#
-#     def forward(self, pre_img, post_img, label):
-#         self.model.eval()
 
 
 
@@ -108,7 +93,6 @@ class Trainer(object):
                                         base_lr=args.learning_rate)
         
         self.optim = optim.AdamW(param_groups)
-        # self.optim = optim.SGD(param_groups, lr=1e-4, weight_decay=0.01, momentum=0.9)
         
         self.warmup_scheduler = LinearWarmupLR(
             self.optim,
@@ -123,23 +107,13 @@ class Trainer(object):
             total_iters=total_iters_after_warmup,
             min_lr=0.0
         )
-        
-        # self.poly_scheduler = StepLR(
-        #     self.optim,
-        #     milestones=[args.max_iters // args.train_batch_size * 0.7, args.max_iters // args.train_batch_size * 0.85],
-        #     gamma=0.7,
-        #     min_lr=0.0
-        # )
-        
+
         self.current_iter = 0
         
         self.slide_test = args.slide_test
         self.slide_window = args.slide_window
         self.slide_stride = args.slide_stride
-        
-        # self.optim = optim.AdamW(self.deep_model.parameters(),
-        #                          lr=args.learning_rate,
-        #                          weight_decay=args.weight_decay)
+
     
     def training(self):
         """
@@ -167,7 +141,6 @@ class Trainer(object):
             if self.current_iter < self.args.warmup_iters:
                 lrs = self.warmup_scheduler.step(self.current_iter)
             else:
-                # poly调度器从warmup结束开始计数
                 poly_iter = self.current_iter - self.args.warmup_iters
                 lrs = self.poly_scheduler.step(poly_iter)
             
@@ -188,20 +161,10 @@ class Trainer(object):
             ce_loss_clf = F.cross_entropy(output_clf, labels_clf)
             lovasz_loss_clf = L.lovasz_softmax(F.softmax(output_clf, dim=1), labels_clf, ignore=255)
             final_loss = ce_loss_loc + 2 * ce_loss_clf + lovasz_loss_clf + 0.5 * lovasz_loss_loc
-            
-            # output_loc, output_clf = self.deep_model(pre_change_imgs, post_change_imgs)
-            # ce_loss_clf = F.cross_entropy(output_clf, labels_clf)
-            # lovasz_loss_clf = L.lovasz_softmax(F.softmax(output_clf, dim=1), labels_clf, ignore=255)
-            # final_loss = ce_loss_clf + 0.75 * lovasz_loss_clf
-            
-            
+
             final_loss.backward()
             self.optim.step()
-            
-            # self.scaler.scale(final_loss).backward()
-            # self.scaler.step(self.optim)
-            # self.scaler.update()
-            
+
             if (itera + 1) % 100 == 0:
                 print(f'iter is {itera + 1}, classification loss is {final_loss.item()}, lr is {lrs[-1]}')
             if (itera + 1) % 250 == 0:
@@ -228,7 +191,7 @@ class Trainer(object):
         self.evaluator_clf.reset()
         self.evaluator_total.reset()
         self.deep_model.eval()
-        dataset = MultimodalDamageAssessmentDatset(self.args.test_dataset_path, self.args.test_data_name_list, 1024,
+        dataset = MultimodalDamageAssessmentDatset(self.args.val_dataset_path, self.args.val_data_name_list, 1024,
                                                    None, 'test')
         test_data_loader = DataLoader(dataset, batch_size=self.args.eval_batch_size, num_workers=1, drop_last=False)
         torch.cuda.empty_cache()
@@ -300,12 +263,9 @@ def main():
     parser = argparse.ArgumentParser(description="Training on BRIGHT dataset")
     
     parser.add_argument('--dataset', type=str, default='BRIGHT')
-    parser.add_argument('--train_dataset_path', default='G:/data/DFC25/dfc25_track2_trainval', type=str)
-    parser.add_argument('--train_data_list_path', default='G:/data/DFC25/dfc25_track2_trainval/train_set.txt', type=str)
-    parser.add_argument('--val_dataset_path', default='G:/data/DFC25/dfc25_track2_trainval', type=str)
-    parser.add_argument('--val_data_list_path', default='G:/data/DFC25/dfc25_track2_trainval/test_set.txt', type=str)
-    parser.add_argument('--test_dataset_path', default='G:/data/DFC25/dfc25_track2_trainval', type=str)
-    parser.add_argument('--test_data_list_path', default='G:/data/DFC25/dfc25_track2_trainval/test_set.txt', type=str)
+    parser.add_argument('--train_dataset_path', default='F:/TESTDATASETS/BRIGHT/dfc25_track2/train', type=str)
+    parser.add_argument('--val_dataset_path', default='F:/TESTDATASETS/BRIGHT/dfc25_track2/test', type=str)
+    parser.add_argument('--test_dataset_path', default='F:/TESTDATASETS/BRIGHT/dfc25_track2/test', type=str)
     parser.add_argument('--train_batch_size', type=int, default=8)
     parser.add_argument('--eval_batch_size', type=int, default=4)
     
@@ -322,10 +282,10 @@ def main():
     parser.add_argument('--model_param_path', type=str, default='INP_dec8share_dino_pixC_CA_800E')
     
     parser.add_argument('--resume', type=str)
-    parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--learning_rate', type=float, default=2e-4)
     parser.add_argument('--weight_decay', type=float, default=0.05) # 1e-4
-    parser.add_argument('--layer_decay', type=float, default=0.85)
-    parser.add_argument('--drop_path_rate', type=float, default=0.15)
+    parser.add_argument('--layer_decay', type=float, default=0.95)
+    parser.add_argument('--drop_path_rate', type=float, default=0.10)
     parser.add_argument('--num_workers', default=0, type=int)
     
     parser.add_argument('--warmup_iters', type=int, default=100, help='Warmup iterations')
@@ -342,16 +302,16 @@ def main():
     
     set_seed(args.seed)
     
-    with open(args.train_data_list_path, "r") as f:
-        train_data_name_list = [data_name.strip() for data_name in f]
+    data_list = os.listdir(os.path.join(args.train_dataset_path, 'pre-event'))
+    train_data_name_list = [data_name[:-17] for data_name in data_list]
     args.train_data_name_list = train_data_name_list
-    
-    with open(args.val_data_list_path, "r") as f:
-        val_data_name_list = [data_name.strip() for data_name in f]
+
+    data_list = os.listdir(os.path.join(args.val_dataset_path, 'pre-event'))
+    val_data_name_list = [data_name[:-17] for data_name in data_list]
     args.val_data_name_list = val_data_name_list
-    
-    with open(args.test_data_list_path, "r") as f:
-        test_data_name_list = [data_name.strip() for data_name in f]
+
+    data_list = os.listdir(os.path.join(args.test_dataset_path, 'pre-event'))
+    test_data_name_list = [data_name[:-17] for data_name in data_list]
     args.test_data_name_list = test_data_name_list
     
     trainer = Trainer(args)

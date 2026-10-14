@@ -544,6 +544,7 @@ class SwinTransformerV2_seg(nn.Module):
                  norm_layer=nn.LayerNorm,
                  ape=True,
                  patch_norm=True,
+                 collapse_repeated_input=True,
                  use_checkpoint=False,
                  pretrained_window_sizes=[0, 0, 0, 0],
                  init_cfg=None, **kwargs):
@@ -557,6 +558,7 @@ class SwinTransformerV2_seg(nn.Module):
         self.num_features = int(embed_dim * 2 ** (self.num_layers - 1))
         self.mlp_ratio = mlp_ratio
         self.img_size = img_size
+        self.inchans = in_chans
         # split image into non-overlapping patches
         self.patch_embed = PatchEmbed(
             img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim,
@@ -564,6 +566,7 @@ class SwinTransformerV2_seg(nn.Module):
         num_patches = self.patch_embed.num_patches
         patches_resolution = self.patch_embed.patches_resolution
         self.patches_resolution = patches_resolution
+        self.collapse_repeated_input = collapse_repeated_input
 
         self.init_cfg = init_cfg
         # absolute position embedding
@@ -622,6 +625,7 @@ class SwinTransformerV2_seg(nn.Module):
         return {"cpb_mlp", "logit_scale", 'relative_position_bias_table'}
     
     def forward(self, x):
+        x = self._adapt_input_channels(x)
         x = self.patch_embed(x)
         if self.ape:
             x = x + self.absolute_pos_embed
@@ -646,7 +650,20 @@ class SwinTransformerV2_seg(nn.Module):
         flops += self.num_features * self.patches_resolution[0] * self.patches_resolution[1] // (2 ** self.num_layers)
         flops += self.num_features * self.num_classes
         return flops
-    
+
+    def _adapt_input_channels(self, inputs):
+        if inputs.shape[1] == self.inchans:
+            return inputs
+        if (self.collapse_repeated_input and self.inchans == 1 and
+                inputs.shape[1] == 3):
+            # DDHR's grayscale loader replicates SAR into three channels.
+            # Selecting one copy preserves the original values exactly;
+            # averaging can introduce a small floating-point round-off.
+            return inputs[:, :1]
+        raise ValueError(
+            f'Expected {self.inchans} input channels, got '
+            f'{inputs.shape[1]}.')
+
     def init_weights(self):
         logger = MMLogger.get_current_instance()
         if self.init_cfg is None:

@@ -506,3 +506,6 @@ def get_dataloader(args, generator):
     
     return train_loader, val_loader, num_classes
 
+if __name__ == '__main__':
+    img = np.load(r'G:\SAR_RGB_Datasets\BigEarthNet-MM\RGB\S2A_MSIL2A_20170613T101031_0_48_S1B_IW_GRDH_1SDV_20170613T160455_34VER_0_48.npy')
+    print()

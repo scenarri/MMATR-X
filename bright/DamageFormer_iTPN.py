@@ -38,23 +38,47 @@ class Attention(nn.Module):
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
-        
-        q = q * self.scale
-        attn = (q @ k.transpose(-2, -1))
-        
-        if rpe_index is not None:
-            S = int(math.sqrt(rpe_index.size(-1)))
-            relative_position_bias = self.relative_position_bias_table[rpe_index].view(-1, S, S, self.num_heads)
-            relative_position_bias = relative_position_bias.permute(0, 3, 1, 2).contiguous()
-            attn = attn + relative_position_bias
-        if mask is not None:
-            mask = mask.bool()
-            attn = attn.masked_fill(~mask[:, None, None, :], float("-inf"))
-        attn = attn.float().clamp(min=torch.finfo(torch.float32).min, max=torch.finfo(torch.float32).max)
-        attn = self.softmax(attn)
-        attn = self.attn_drop(attn)
-        
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+
+        can_use_sdpa = (
+                rpe_index is None
+                and mask is None
+                and q.is_cuda
+                and q.dtype in (torch.float16, torch.bfloat16)
+        )
+
+        if can_use_sdpa:
+            # SDPA 内部会自动乘 head_dim**-0.5。
+            # 下面同时兼容自定义 qk_scale。
+            q_sdpa = q * (self.scale * math.sqrt(q.shape[-1]))
+
+            dropout_p = self.attn_drop.p if self.training else 0.0
+
+            x = F.scaled_dot_product_attention(
+                q_sdpa,
+                k,
+                v,
+                attn_mask=None,
+                dropout_p=dropout_p,
+                is_causal=False,
+            )
+        else:
+            q = q * self.scale
+            attn = (q @ k.transpose(-2, -1))
+
+            if rpe_index is not None:
+                S = int(math.sqrt(rpe_index.size(-1)))
+                relative_position_bias = self.relative_position_bias_table[rpe_index].view(-1, S, S, self.num_heads)
+                relative_position_bias = relative_position_bias.permute(0, 3, 1, 2).contiguous()
+                attn = attn + relative_position_bias
+            if mask is not None:
+                mask = mask.bool()
+                attn = attn.masked_fill(~mask[:, None, None, :], float("-inf"))
+            attn = attn.float().clamp(min=torch.finfo(torch.float32).min, max=torch.finfo(torch.float32).max)
+            attn = self.softmax(attn)
+            attn = self.attn_drop(attn)
+            x = attn @ v
+
+        x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
         return x

@@ -171,7 +171,6 @@ if __name__ == "__main__":
     parser.set_defaults(linprob=True)
     
     # Optimizer
-    parser.add_argument('--optimizer', type=str, default='AdamW', choices=['AdamW', 'SGD'])
     parser.add_argument('--lr', type=float, default=0.5)
     parser.add_argument('--min_lr', type=float, default=1e-6)
     parser.add_argument('--warmup_epochs', type=int, default=0)

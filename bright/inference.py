@@ -321,9 +321,9 @@ class Inference:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Inference on BRIGHT")
-    parser.add_argument('--model_path', type=str, default='INP_dec8share_dino_pixC_CA_800E/BRIGHT/DamageFormer_20260228_031807/best_model.pth')
-    parser.add_argument('--test_dataset_path', type=str, default='G:/data/DFC25/dfc25_track2_trainval')
-    parser.add_argument('--test_data_list_path', type=str, default='G:/data/DFC25/dfc25_track2_trainval/test_set.txt')
+    parser.add_argument('--model_path', type=str, default='INP_dec8share_dino_pixC_CA_800E/BRIGHT/DamageFormer_20261014_163756/best_model.pth')
+    parser.add_argument('--test_dataset_path', type=str, default='F:/TESTDATASETS/BRIGHT/dfc25_track2/test')
+    parser.add_argument('--test_data_list_path', type=str)
     parser.add_argument('--output_dir', type=str, default='inference')
     
     parser.add_argument('--slide_test', action='store_true', default=True)
@@ -336,8 +336,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Load test data list
-    with open(args.test_data_list_path, "r") as f:
-        test_data_list = [data_name.strip() for data_name in f]
+    data_list = os.listdir(os.path.join(args.test_dataset_path, 'pre-event'))
+    test_data_list = [data_name[:-17] for data_name in data_list]
     args.test_data_list = test_data_list
     
     inference = Inference(args)

@@ -237,7 +237,7 @@ class iTPN_pixel(nn.Module):
                  mlp_depth2=3, depth=24, fpn_dim=256, num_heads=8, bridge_mlp_ratio=3., mlp_ratio=4., fpn_depth=1,
                  qkv_bias=True, qk_scale=None, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.0,
                  norm_layer=nn.LayerNorm, ape=True, rpe=True, patch_norm=True, use_checkpoint=True,
-                 num_outs=4, init_cfg=None, **kwargs):
+                 num_outs=4, init_cfg=None, frozen=False, **kwargs):
         super().__init__()
         assert num_outs in [-1, 1, 2, 3, 4, 5]
         self.num_classes = num_classes
@@ -254,6 +254,7 @@ class iTPN_pixel(nn.Module):
         self.mlp_depth1 = mlp_depth1
         self.mlp_depth2 = mlp_depth2
         self.init_cfg = init_cfg
+        self.frozen = frozen
 
         mlvl_dims = {'4': embed_dim // 4, '8': embed_dim // 2, '16': embed_dim}
         # split image into non-overlapping patches
@@ -364,6 +365,18 @@ class iTPN_pixel(nn.Module):
             self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
 
         self.apply(self._init_weights)
+        
+        self._freeze()
+
+    def _freeze(self):
+        if not self.frozen:
+            return
+
+        for param in self.parameters():
+            param.requires_grad = False
+
+        # 固定 Dropout / DropPath 等模块的行为
+        super().train(False)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):

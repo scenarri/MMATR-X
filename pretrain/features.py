@@ -6,11 +6,49 @@ import math
 from matplotlib import pyplot as plt
 import kornia
 from kornia.filters.median import MedianBlur
+from kornia.filters.gaussian import GaussianBlur2d
 import torch
+
 
 def channel_avg_pool(x, groups=9):
     B, C, H, W = x.shape
     return x.view(B, groups, -1, H, W).mean(dim=2)
+
+
+class CannyTarget(torch.nn.Module):
+    def __init__(
+            self,
+            low_threshold=0.1,
+            high_threshold=0.2,
+            kernel_size=(5, 5),
+            sigma=(1.0, 1.0),
+    ):
+        super().__init__()
+
+        self.canny = kornia.filters.Canny(
+            low_threshold=low_threshold,
+            high_threshold=high_threshold,
+            kernel_size=kernel_size,
+            sigma=sigma,
+            hysteresis=True,
+        )
+
+    def forward(self, x):
+        """
+        x: [B, 3, H, W], assumed to be in [0, 1]
+        return: [B, 1, H, W] Canny edge map
+        """
+
+        # RGB -> luminance
+        if x.shape[1] == 3:
+            x = kornia.color.rgb_to_grayscale(x)
+
+        # magnitude: continuous gradient response
+        # edges: thresholded Canny edge map
+        magnitude, edges = self.canny(x)
+
+        return edges
+
 
 ## SARATR-X Multi-scale grad feature
 class GF(nn.Module):
@@ -24,7 +62,8 @@ class GF(nn.Module):
 
             M_11 = np.concatenate([np.ones([2 * r + 1, r + 1]), np.zeros([2 * r + 1, r])], axis=1)
             M_21 = np.concatenate([np.zeros([2 * r + 1, r]), np.ones([2 * r + 1, r + 1])], axis=1)
-            return torch.from_numpy((M_13)).float(), torch.from_numpy((M_23)).float(), torch.from_numpy((M_11)).float(), torch.from_numpy((M_21)).float()
+            return torch.from_numpy((M_13)).float(), torch.from_numpy((M_23)).float(), torch.from_numpy(
+                (M_11)).float(), torch.from_numpy((M_21)).float()
 
         M13, M23, M11, M21 = creat_gauss_kernel(self.k)
         weight_x1 = M11.view(1, 1, self.k * 2 + 1, self.k * 2 + 1)
@@ -49,19 +88,22 @@ class GF(nn.Module):
         norm_rgb = torch.stack([gx_rgb, gy_rgb], dim=-1).norm(dim=-1)
         return norm_rgb
 
+
 class MultiscaleGF(nn.Module):
     def __init__(self):
         super(MultiscaleGF, self).__init__()
         self.filter1 = GF(kensize=9)
         self.filter2 = GF(kensize=13)
         self.filter3 = GF(kensize=17)
+
     def forward(self, x):
         y1 = self.filter1(x)
         y2 = self.filter2(x)
         y3 = self.filter3(x)
         y = torch.cat([y1, y2, y3], dim=1)
         return y
-    
+
+
 class HOGLayerC(nn.Module):
     """Generate hog feature for each batch images. This module is used in
     Maskfeat to generate hog feature. This code is borrowed from.
@@ -161,8 +203,9 @@ class HOGLayerC(nn.Module):
 
         return out
 
+
 class DualFeat(nn.Module):
-    def __init__(self, filter='pixel', reduction='none', input_size=224, patch_size=16):
+    def __init__(self, filter='pixel', reduction='none', input_size=224, patch_size=4):
         super(DualFeat, self).__init__()
         self.filter_type = filter
         self.input_size = input_size
@@ -170,41 +213,25 @@ class DualFeat(nn.Module):
             self.filter = MultiscaleGF()
         elif filter == 'hog':
             self.filter = HOGLayerC()
+        elif filter == 'canny':
+            self.filter = CannyTarget()
         elif filter == 'pixel':
             self.filter = nn.Identity()
         self.filter.cuda()
-        
+
         if reduction == 'median':
             self.median = MedianBlur(kernel_size=(5, 5))
-        
-        assert reduction in ['none', 'channel', 'spatial', 'median', 'dual']
-        
+        elif reduction in ['gaussian', 'dual']:
+            self.gaussian = GaussianBlur2d(kernel_size=(7, 7), sigma=(1.5, 1.5))
+
+        assert reduction in ['none', 'channel', 'spatial', 'median', 'dual', 'gaussian']
+
         self.reduction = reduction
         self.patch_size = patch_size
-        self.pooller = torch.nn.AvgPool2d(kernel_size=patch_size, stride=patch_size)
-        self.num_patches = input_size // patch_size
-        
-    @torch.no_grad()
-    def pool_and_upsample(self, x):
-        x = self.pooller(x)
-        x = x.repeat_interleave(self.patch_size, dim=2)
-        x = x.repeat_interleave(self.patch_size, dim=3)
-        return x
-    
-    def patchify(self, imgs):
-        chs = imgs.shape[1]
-        p = self.patch_size
-        assert imgs.shape[2] == imgs.shape[3] and imgs.shape[2] % p == 0
-        
-        h = w = imgs.shape[2] // p
-        x = imgs.reshape(shape=(imgs.shape[0], chs, h, p, w, p))
-        x = torch.einsum('nchpwq->nhwpqc', x)
-        x = x.reshape(shape=(imgs.shape[0], h * w, p ** 2 * chs))
-        return x
-    
+
     @torch.no_grad()
     def forward(self, x):
-        
+
         if self.filter_type == 'pixel':
             x_rgb = x['normalized'][:, :3, :, :].cuda(non_blocking=True)
             x_sar = x['normalized'][:, 3:, :, :].cuda(non_blocking=True)
@@ -212,24 +239,27 @@ class DualFeat(nn.Module):
                 return x_rgb, x_sar
             if self.reduction == 'channel' or self.reduction == 'dual':
                 x_rgb = 0.299 * x_rgb[:, 0:1, :, :] + 0.587 * x_rgb[:, 1:2, :, :] + 0.114 * x_rgb[:, 2:3, :, :]
-                x_rgb = x_rgb#.repeat(1, 3, 1, 1)
-                x_sar = x_sar.mean(dim=1, keepdim=True)#.repeat(1, 3, 1, 1)
-            if self.reduction == 'spatial' or self.reduction == 'dual':
-                x_rgb = self.pool_and_upsample(x_rgb)
-                x_sar = self.pool_and_upsample(x_sar)
+                x_rgb = x_rgb
+                x_sar = x_sar.mean(dim=1, keepdim=True)
             if self.reduction == 'median':
                 x_rgb = self.median(x_rgb)
                 x_sar = self.median(x_sar)
+            elif self.reduction == 'gaussian' or self.reduction == 'dual':
+                x_rgb = self.gaussian(x_rgb)
+                x_sar = self.gaussian(x_sar)
             return x_rgb, x_sar
-            
+
         x_rgb = x['original'][:, :3, :, :].cuda(non_blocking=True)
         x_sar = x['original'][:, 3:, :, :].cuda(non_blocking=True)
-        
-        x_rgb = 0.299*x_rgb[:,0:1,:,:]+0.587*x_rgb[:,1:2,:,:]+0.114*x_rgb[:,2:3,:,:]
+
+        x_rgb = 0.299 * x_rgb[:, 0:1, :, :] + 0.587 * x_rgb[:, 1:2, :, :] + 0.114 * x_rgb[:, 2:3, :, :]
         x_sar = x_sar.mean(dim=1, keepdim=True)
-        
+
         ft_rgb = self.filter(x_rgb)
         ft_sar = self.filter(x_sar)
-    
+        if self.reduction == 'channel' or self.reduction == 'dual':
+            ft_rgb = ft_rgb.mean(dim=1, keepdim=True)
+            ft_sar = ft_sar.mean(dim=1, keepdim=True)
+
         return ft_rgb, ft_sar
 

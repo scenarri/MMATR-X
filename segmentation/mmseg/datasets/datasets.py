@@ -1,7 +1,6 @@
 from mmseg.registry import DATASETS
 from .basesegdataset import BaseSegDataset
 
-
 @DATASETS.register_module()
 class DDHRSKDataset(BaseSegDataset):
     METAINFO = dict(classes=('Building', 'Road', 'Greenery', 'Water',
@@ -13,6 +12,87 @@ class DDHRSKDataset(BaseSegDataset):
                  img_suffix='.png',
                  seg_map_suffix='.png',
                  reduce_zero_label=False,
+                 **kwargs):
+        super().__init__(img_suffix=img_suffix,
+                         seg_map_suffix=seg_map_suffix,
+                         reduce_zero_label=reduce_zero_label,
+                         **kwargs)
+
+@DATASETS.register_module()
+class WHUDataset(BaseSegDataset):
+    METAINFO = dict(classes=('farmland', 'city', 'village', 'water', 'forest',
+                             'road', 'other'),
+                    palette=[[255, 195, 128], [255, 0, 0], [159, 129, 183],
+                             [0, 0, 255], [0, 255, 0], [255, 255, 0],
+                             [255, 255, 255]])
+
+    def __init__(self,
+                 img_suffix='.png',
+                 seg_map_suffix='.png',
+                 reduce_zero_label=True,
+                 **kwargs):
+        super().__init__(img_suffix=img_suffix,
+                         seg_map_suffix=seg_map_suffix,
+                         reduce_zero_label=reduce_zero_label,
+                         **kwargs)
+
+
+@DATASETS.register_module()
+class GEONRWDataset(BaseSegDataset):
+    METAINFO = dict(classes=('forest', 'water', 'agricultural', 'residential,commercial,industrial',
+                             'grassland,swamp,shrubbery', 'railway,trainstation', 'highway,squares',
+                             'airport,shipyard', 'roads', 'buildings'),
+                    palette=[[0, 255, 0], [0, 0, 255], [255, 195, 128], [79, 100, 127],
+                             [189, 255, 0], [148, 160, 190], [195, 176, 58],
+                             [249, 255, 159], [91, 255, 129], [165, 165, 165]])
+
+    def __init__(self,
+                 img_suffix='.png',
+                 seg_map_suffix='.png',
+                 reduce_zero_label=True,
+                 **kwargs):
+        super().__init__(img_suffix=img_suffix,
+                         seg_map_suffix=seg_map_suffix,
+                         reduce_zero_label=reduce_zero_label,
+                         **kwargs)
+
+
+@DATASETS.register_module()
+class myNYUDataset(BaseSegDataset):
+    METAINFO = dict(
+        classes=(
+            'wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table',
+            'door', 'window', 'bookshelf', 'picture', 'counter', 'blinds',
+            'desk', 'shelves', 'curtain', 'dresser', 'pillow', 'mirror',
+            'floor mat', 'clothes', 'ceiling', 'books', 'refridgerator',
+            'television', 'paper', 'towel', 'shower curtain', 'box',
+            'whiteboard', 'person', 'night stand', 'toilet', 'sink', 'lamp',
+            'bathtub', 'bag', 'otherstructure', 'otherfurniture', 'otherprop',
+        ),
+        # NYU40 colors for semantic IDs 1..40, shifted to train IDs 0..39.
+        # The black color for disk ID 0 is deliberately omitted: it is ignore.
+        palette=[
+            [174, 199, 232], [152, 223, 138], [31, 119, 180],
+            [255, 187, 120], [188, 189, 34], [140, 86, 75],
+            [255, 152, 150], [214, 39, 40], [197, 176, 213],
+            [148, 103, 189], [196, 156, 148], [23, 190, 207],
+            [178, 76, 76], [247, 182, 210], [66, 188, 102],
+            [219, 219, 141], [140, 57, 197], [202, 185, 52],
+            [51, 176, 203], [200, 54, 131], [92, 193, 61],
+            [78, 71, 183], [172, 114, 82], [255, 127, 14],
+            [91, 163, 138], [153, 98, 156], [140, 153, 101],
+            [158, 218, 229], [100, 125, 154], [178, 127, 135],
+            [120, 185, 128], [146, 111, 194], [44, 160, 44],
+            [112, 128, 144], [96, 207, 209], [227, 119, 194],
+            [213, 92, 176], [94, 106, 211], [82, 84, 163],
+            [100, 85, 144],
+        ],
+    )
+
+    def __init__(self,
+                 img_suffix='.png',
+                 seg_map_suffix='.png',
+                 reduce_zero_label=True,
                  **kwargs):
         super().__init__(img_suffix=img_suffix,
                          seg_map_suffix=seg_map_suffix,

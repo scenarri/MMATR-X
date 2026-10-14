@@ -35,7 +35,7 @@ class MultimodalDamageAssessmentDatset(Dataset):
     
     def __transforms(self, aug, pre_img, post_img, label):
         if aug:
-            pre_img, post_img, label = imutils.random_scale(pre_img, post_img, label, [0.5, 2.0])
+            pre_img, post_img, label = imutils.random_scale(pre_img, post_img, label, [0.5, 1.5])
             pre_img, post_img, label = imutils.random_crop(pre_img, post_img, label, self.crop_size)
             pre_img, post_img, label = imutils.random_fliplr(pre_img, post_img, label)
             pre_img, post_img, label = imutils.random_flipud(pre_img, post_img, label)

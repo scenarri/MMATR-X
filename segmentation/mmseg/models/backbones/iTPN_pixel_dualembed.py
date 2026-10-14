@@ -382,7 +382,20 @@ class iTPN_pixel_dualembed(nn.Module):
             self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
 
         self.apply(self._init_weights)
+        
+        
+        self._freeze()
 
+    def _freeze(self):
+        if not self.frozen:
+            return
+
+        for param in self.parameters():
+            param.requires_grad = False
+
+        # 固定 Dropout / DropPath 等模块的行为
+        super().train(False)
+        
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -548,6 +561,8 @@ class iTPN_pixel_dualembed(nn.Module):
                     state_dict['absolute_pos_embed'] = absolute_pos_embed.view(N2, H, W, C2).permute(0, 3, 1, 2).contiguous()
             '''
             
+            
+            
             # interpolate position bias table if needed
             relative_position_bias_table_keys = [k for k in state_dict.keys() if "relative_position_bias_table" in k]
             for table_key in relative_position_bias_table_keys:
@@ -571,3 +586,4 @@ class iTPN_pixel_dualembed(nn.Module):
             
             msg = self.load_state_dict(state_dict, False)
             logger.info(msg)
+            # self.absolute_pos_embed.requires_grad = False
