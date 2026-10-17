@@ -12,12 +12,12 @@
 </p>
 
 <p align="center">
-  <a href="https://arxiv.org/abs/2410.13891"><img src="https://img.shields.io/badge/Paper-arxiv-red"></a>
+  <a href="https://arxiv.org/abs/2604.16952"><img src="https://img.shields.io/badge/Paper-arxiv-red"></a>
   <a href="https://github.com/scenarri/CoDeMAE"><img src="https://img.shields.io/badge/Code-GitHub-blue"></a>
   <a href="https://pan.baidu.com/s/1MNFYW0sU5Nkla67Aw0EL3g?pwd=vkpg"><img src="https://img.shields.io/badge/MMATRX--Reource-BaiduYun-blue"></a>
 </p>
 
-> We are currently working on a revision and refactoring this repository. We will share the resources again at a later date.
+> <b>Note</b>: We are currently working on a revision and refactoring this repository. We will share the resources again at a later date.
 
 
 ## Introduction
