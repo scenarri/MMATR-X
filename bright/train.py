@@ -264,7 +264,7 @@ def main():
     
     parser.add_argument('--dataset', type=str, default='BRIGHT')
     parser.add_argument('--train_dataset_path', default='F:/TESTDATASETS/BRIGHT/dfc25_track2/train', type=str)
-    parser.add_argument('--val_dataset_path', default='F:/TESTDATASETS/BRIGHT/dfc25_track2/test', type=str)
+    parser.add_argument('--val_dataset_path', default='F:/TESTDATASETS/BRIGHT/dfc25_track2/val', type=str)
     parser.add_argument('--test_dataset_path', default='F:/TESTDATASETS/BRIGHT/dfc25_track2/test', type=str)
     parser.add_argument('--train_batch_size', type=int, default=8)
     parser.add_argument('--eval_batch_size', type=int, default=4)
